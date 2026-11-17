@@ -1,0 +1,2334 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>askUZH Board</title>
+  <style>
+    :root {
+      --bg: #f7f7f5;
+      --surface: #ffffff;
+      --surface-subtle: #fbfbfa;
+      --border: #e4e4e0;
+      --border-strong: #94948e;
+      --border-grid: #cfcfc9;
+      --text: #1c1c1a;
+      --text-muted: #62625d;
+      --accent: #1c1c1a;
+      --focus-ring: #2563eb;
+      --drop-marker-color: #2563eb;
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.05);
+      --shadow-lifted: 0 12px 28px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.08);
+
+      --note-lilac: #efe3f6;
+      --note-yellow: #fdf2c5;
+      --note-mint: #dff3e4;
+      --note-sky: #dff0fb;
+      --note-coral: #fde2de;
+      --note-sand: #f1efe9;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    html.is-dragging,
+    html.is-dragging * {
+      cursor: grabbing !important;
+    }
+
+    /* Barre superieure */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 10px 20px;
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+
+    .board-title {
+      font: inherit;
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      padding: 4px 8px;
+      margin: -4px -8px;
+      background: transparent;
+      color: var(--text);
+      min-width: 200px;
+    }
+
+    .board-title:hover {
+      border-color: var(--border);
+      background: var(--surface);
+    }
+
+    .board-title:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 1px;
+      background: var(--surface);
+    }
+
+    .status-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      font: inherit;
+      font-size: 13px;
+      line-height: 1.2;
+      color: var(--text);
+      background: var(--surface);
+      border: 1px solid var(--border-grid);
+      border-radius: var(--radius-sm);
+      padding: 7px 11px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.12s ease, border-color 0.12s ease;
+    }
+
+    button:hover {
+      background: #f0f0ec;
+    }
+
+    button:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    button.btn-primary {
+      background: var(--accent);
+      color: #ffffff;
+      border-color: var(--accent);
+    }
+
+    button.btn-primary:hover {
+      background: #333330;
+    }
+
+    button.btn-ghost {
+      border-color: transparent;
+      background: transparent;
+      color: var(--text-muted);
+      padding: 5px 7px;
+    }
+
+    button.btn-ghost:hover {
+      background: rgba(0, 0, 0, 0.05);
+      color: var(--text);
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    /* Bouton statut GitHub */
+    .sync-btn[data-state="synced"] {
+      border-color: #86efac;
+      background: #f0fdf4;
+      color: #14532d;
+    }
+
+    .sync-btn[data-state="pending"],
+    .sync-btn[data-state="syncing"] {
+      border-color: #93c5fd;
+      background: #eff6ff;
+      color: #1e3a8a;
+    }
+
+    .sync-btn[data-state="error"],
+    .sync-btn[data-state="conflict"] {
+      border-color: #fca5a5;
+      background: #fef2f2;
+      color: #7f1d1d;
+    }
+
+    /* Conteneur du tableau */
+    .board-viewport {
+      overflow: auto;
+      height: calc(100vh - 56px);
+      padding: 16px 20px 32px;
+    }
+
+    .board-table {
+      display: grid;
+      grid-template-columns: 190px minmax(220px, 1.15fr) repeat(var(--doing-count, 4), minmax(200px, 1fr)) minmax(200px, 1fr);
+      background: var(--surface);
+      border: 1px solid var(--border-grid);
+      border-radius: var(--radius-md);
+      min-width: max-content;
+    }
+
+    /* En-tetes du tableau */
+    .hdr-corner {
+      grid-row: 1 / span 2;
+      grid-column: 1;
+      position: sticky;
+      top: 0;
+      left: 0;
+      z-index: 22;
+      background: var(--surface-subtle);
+      border-right: 1px solid var(--border-grid);
+      border-bottom: 1px solid var(--border-grid);
+      padding: 12px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      border-top-left-radius: var(--radius-md);
+    }
+
+    .hdr-main {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: var(--surface-subtle);
+      border-bottom: 1px solid var(--border);
+      border-right: 1px solid var(--border-grid);
+      padding: 10px 12px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+
+    .hdr-todo {
+      grid-row: 1 / span 2;
+      grid-column: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-bottom: 1px solid var(--border-grid);
+    }
+
+    .hdr-doing-group {
+      grid-row: 1;
+      grid-column: 3 / span var(--doing-count, 4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .hdr-done {
+      grid-row: 1 / span 2;
+      grid-column: calc(3 + var(--doing-count, 4));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-right: none;
+      border-bottom: 1px solid var(--border-grid);
+      border-top-right-radius: var(--radius-md);
+    }
+
+    .hdr-sub {
+      position: sticky;
+      top: 38px;
+      z-index: 19;
+      background: var(--surface-subtle);
+      border-bottom: 1px solid var(--border-grid);
+      border-right: 1px solid var(--border);
+      padding: 7px 10px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .hdr-sub.last-doing {
+      border-right: 1px solid var(--border-grid);
+    }
+
+    .inline-label {
+      cursor: text;
+      padding: 2px 5px;
+      border-radius: 4px;
+    }
+
+    .inline-label:hover {
+      background: rgba(0, 0, 0, 0.05);
+    }
+
+    /* En-tete de ligne (activite) */
+    .lane-header {
+      position: sticky;
+      left: 0;
+      z-index: 15;
+      background: var(--surface-subtle);
+      border-right: 1px solid var(--border-grid);
+      border-bottom: 1px solid var(--border);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      gap: 8px;
+    }
+
+    .lane-tag {
+      background: #f8df72;
+      color: #1c1c1a;
+      padding: 8px 10px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 12.5px;
+      line-height: 1.3;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+      word-break: break-word;
+    }
+
+    .lane-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Cellules de la grille */
+    .board-cell {
+      position: relative;
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 10px;
+      min-height: 136px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background-image:
+        linear-gradient(to right, rgba(0, 0, 0, 0.022) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0, 0, 0, 0.022) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    .board-cell.col-boundary {
+      border-right: 1px solid var(--border-grid);
+    }
+
+    .board-cell.col-last {
+      border-right: none;
+    }
+
+    .board-cell.is-drop-target {
+      background-color: rgba(37, 99, 235, 0.04);
+    }
+
+    .cell-cards {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+      min-height: 28px;
+    }
+
+    .cell-cards[data-drop]::after {
+      content: "";
+      position: fixed;
+      left: var(--drop-x, 0px);
+      top: var(--drop-y, 0px);
+      width: var(--drop-w, 0px);
+      height: 2px;
+      background: var(--drop-marker-color);
+      border-radius: 2px;
+      pointer-events: none;
+      z-index: 60;
+    }
+
+    @media (forced-colors: active) {
+      .cell-cards[data-drop]::after {
+        background: Highlight;
+      }
+    }
+
+    .add-card-btn {
+      align-self: flex-start;
+      opacity: 0;
+      font-size: 12px;
+      color: var(--text-muted);
+      border: 1px dashed var(--border-grid);
+      background: rgba(255, 255, 255, 0.85);
+      padding: 4px 8px;
+      border-radius: 4px;
+      transition: opacity 0.12s ease;
+    }
+
+    .board-cell:hover .add-card-btn,
+    .board-cell:focus-within .add-card-btn,
+    .add-card-btn:focus-visible {
+      opacity: 1;
+    }
+
+    /* Post-it */
+    .note-card {
+      position: relative;
+      border-radius: 4px;
+      padding: 6px 8px 8px;
+      box-shadow: var(--shadow-card);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      scroll-margin: 12px;
+      background: var(--note-lilac);
+      transition: box-shadow 0.12s ease;
+    }
+
+    .note-card[data-color="lilac"] { background: var(--note-lilac); }
+    .note-card[data-color="yellow"] { background: var(--note-yellow); }
+    .note-card[data-color="mint"] { background: var(--note-mint); }
+    .note-card[data-color="sky"] { background: var(--note-sky); }
+    .note-card[data-color="coral"] { background: var(--note-coral); }
+    .note-card[data-color="sand"] { background: var(--note-sand); }
+
+    .note-card:has(.drag-handle:focus-visible) {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    .note-card.is-grabbed {
+      z-index: 50;
+      box-shadow: var(--shadow-lifted);
+      scale: 1.02;
+    }
+
+    .note-card.is-pointer-dragging {
+      pointer-events: none;
+    }
+
+    .note-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px;
+      min-height: 18px;
+    }
+
+    .drag-handle {
+      border: none;
+      background: transparent;
+      padding: 2px 5px;
+      border-radius: 3px;
+      cursor: grab;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+      color: rgba(0, 0, 0, 0.42);
+      font-size: 12px;
+      line-height: 1;
+      letter-spacing: 1px;
+    }
+
+    .drag-handle:is(:hover, :focus-visible) {
+      background: rgba(0, 0, 0, 0.08);
+      color: var(--text);
+      outline: none;
+    }
+
+    .drag-handle[aria-pressed="true"] {
+      background: var(--text);
+      color: #ffffff;
+    }
+
+    .kb-hint {
+      display: none;
+      font-size: 10.5px;
+      color: rgba(0, 0, 0, 0.65);
+      padding: 1px 2px;
+    }
+
+    .note-card:has(.drag-handle:focus-visible) .kb-hint,
+    .note-card.is-grabbed .kb-hint {
+      display: block;
+    }
+
+    .note-actions {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      opacity: 0;
+      transition: opacity 0.12s ease;
+    }
+
+    .note-card:hover .note-actions,
+    .note-card:focus-within .note-actions {
+      opacity: 1;
+    }
+
+    .color-dot {
+      width: 13px;
+      height: 13px;
+      padding: 0;
+      border-radius: 50%;
+      border: 1px solid rgba(0, 0, 0, 0.22);
+      cursor: pointer;
+    }
+
+    .color-dot[data-c="lilac"] { background: var(--note-lilac); }
+    .color-dot[data-c="yellow"] { background: var(--note-yellow); }
+    .color-dot[data-c="mint"] { background: var(--note-mint); }
+    .color-dot[data-c="sky"] { background: var(--note-sky); }
+    .color-dot[data-c="coral"] { background: var(--note-coral); }
+    .color-dot[data-c="sand"] { background: var(--note-sand); }
+
+    .color-dot[aria-current="true"] {
+      border: 2px solid var(--text);
+    }
+
+    .delete-note-btn {
+      border: none;
+      background: transparent;
+      color: rgba(0, 0, 0, 0.45);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 14px;
+      line-height: 1;
+      margin-left: 2px;
+    }
+
+    .delete-note-btn:hover {
+      background: rgba(220, 38, 38, 0.12);
+      color: #b91c1c;
+    }
+
+    .note-textarea {
+      width: 100%;
+      border: none;
+      background: transparent;
+      resize: vertical;
+      overflow: hidden;
+      font: inherit;
+      font-size: 13px;
+      line-height: 1.4;
+      color: var(--text);
+      padding: 2px 2px 0;
+      min-height: 38px;
+    }
+
+    .note-textarea:focus {
+      outline: none;
+      background: rgba(255, 255, 255, 0.45);
+      border-radius: 3px;
+    }
+
+    .note-textarea::placeholder {
+      color: rgba(0, 0, 0, 0.38);
+    }
+
+    /* Dialogs natifs */
+    dialog {
+      border: 1px solid var(--border-grid);
+      border-radius: var(--radius-md);
+      padding: 0;
+      max-width: 680px;
+      width: calc(100vw - 32px);
+      color: var(--text);
+      background: var(--surface);
+      box-shadow: 0 20px 44px rgba(0, 0, 0, 0.18);
+    }
+
+    dialog:modal {
+      overscroll-behavior: contain;
+    }
+
+    dialog::backdrop {
+      background-color: rgba(0, 0, 0, 0.36);
+      backdrop-filter: blur(2px);
+      overflow: hidden;
+      overscroll-behavior: contain;
+    }
+
+    .dialog-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .dialog-header h2 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .dialog-body {
+      padding: 16px 18px;
+      max-height: 72vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .dialog-footer {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 12px 18px;
+      border-top: 1px solid var(--border);
+      background: var(--surface-subtle);
+      flex-wrap: wrap;
+    }
+
+    .md-preview {
+      width: 100%;
+      min-height: 340px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12.5px;
+      line-height: 1.5;
+      padding: 12px;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      background: var(--surface-subtle);
+      color: var(--text);
+      resize: vertical;
+    }
+
+    .config-section h3 {
+      margin: 0 0 8px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .config-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .config-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .config-row input,
+    .field-input {
+      width: 100%;
+      font: inherit;
+      font-size: max(1rem, 1em);
+      padding: 8px 10px;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      color: var(--text);
+    }
+
+    .field-input:user-invalid {
+      border-color: #dc2626;
+    }
+
+    .config-row-btns {
+      display: flex;
+      gap: 4px;
+    }
+
+    /* Formulaire de synchronisation GitHub */
+    .form-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-block-end: 14px;
+    }
+
+    .form-field label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .token-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .field-hint {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    .field-hint a {
+      color: var(--focus-ring);
+    }
+
+    .sync-status-banner {
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      background: var(--surface-subtle);
+      border: 1px solid var(--border);
+      font-size: 12.5px;
+      color: var(--text);
+    }
+
+    /* Toast discret */
+    .toast {
+      position: fixed;
+      bottom: 18px;
+      right: 20px;
+      z-index: 80;
+      background: var(--text);
+      color: #ffffff;
+      padding: 9px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+    }
+
+    .toast[hidden] {
+      display: none;
+    }
+
+    .toast button {
+      background: rgba(255, 255, 255, 0.16);
+      color: #ffffff;
+      border: none;
+      padding: 4px 8px;
+      font-size: 12px;
+    }
+
+    .toast button:hover {
+      background: rgba(255, 255, 255, 0.28);
+    }
+
+    .visually-hidden {
+      position: absolute;
+      clip-path: inset(50%);
+      overflow: hidden;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      padding: 0;
+      border: 0;
+      white-space: nowrap;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition: none !important;
+        animation: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-left">
+      <input id="boardTitleInput" class="board-title" type="text" aria-label="Titre du board" value="Project Board">
+      <span id="statusMeta" class="status-meta">Sauvegarde locale active</span>
+    </div>
+    <div class="topbar-actions">
+      <button type="button" id="btnAddQuick">+ Post-it</button>
+      <button type="button" id="btnOpenStructure">Lignes &amp; Colonnes</button>
+      <button type="button" id="btnUndo" title="Annuler la derniere action (Cmd/Ctrl+Z)" disabled>Annuler</button>
+      <button type="button" id="btnOpenGithub" class="sync-btn" data-state="disconnected">○ Sync GitHub</button>
+      <button type="button" id="btnOpenMarkdown" class="btn-primary">Export Markdown</button>
+    </div>
+  </header>
+
+  <main class="board-viewport" id="boardViewport">
+    <div class="board-table" id="boardTable" role="region" aria-label="Tableau des taches"></div>
+  </main>
+
+  <div id="srAnnouncer" class="visually-hidden" aria-live="polite"></div>
+
+  <div id="toast" class="toast" hidden>
+    <span id="toastText"></span>
+    <button type="button" id="toastAction" hidden>Annuler</button>
+  </div>
+
+  <!-- Dialog Synchronisation GitHub (persistance serveur privee) -->
+  <dialog id="githubDialog" closedby="any" aria-labelledby="githubDialogTitle">
+    <div class="dialog-header">
+      <h2 id="githubDialogTitle">Persistance sur GitHub (depot prive)</h2>
+      <button type="button" id="btnCloseGhDialog" class="btn-ghost" aria-label="Fermer">✕</button>
+    </div>
+    <form id="githubConfigForm" method="post" action="#" aria-labelledby="githubDialogTitle">
+      <div class="dialog-body">
+        <div id="ghDialogStatus" class="sync-status-banner" role="status" aria-live="polite">
+          Non connecte : les modifications sont actuellement gardees dans ce navigateur uniquement.
+        </div>
+
+        <div class="form-field">
+          <label for="ghRepoInput">Depot prive des donnees (owner/repo) <span aria-hidden="true">*</span></label>
+          <input
+            type="text"
+            id="ghRepoInput"
+            name="gh_repo"
+            class="field-input"
+            value="alogean/askuzh_board_data"
+            required
+            autocorrect="off"
+            autocapitalize="none"
+            spellcheck="false"
+            enterkeyhint="next"
+          >
+        </div>
+
+        <div class="form-field">
+          <label for="ghBranchInput">Branche <span aria-hidden="true">*</span></label>
+          <input
+            type="text"
+            id="ghBranchInput"
+            name="gh_branch"
+            class="field-input"
+            value="main"
+            required
+            autocorrect="off"
+            autocapitalize="none"
+            spellcheck="false"
+            enterkeyhint="next"
+          >
+        </div>
+
+        <div class="form-field">
+          <label for="ghTokenInput">Fine-Grained Personal Access Token GitHub <span aria-hidden="true">*</span></label>
+          <div class="token-row">
+            <input
+              type="password"
+              id="ghTokenInput"
+              name="gh_token"
+              class="field-input"
+              autocomplete="current-password"
+              autocorrect="off"
+              autocapitalize="none"
+              spellcheck="false"
+              aria-describedby="ghTokenHelp"
+              required
+            >
+            <button type="button" id="btnToggleToken" aria-pressed="false" aria-describedby="ghToggleWarn">Afficher</button>
+          </div>
+          <span id="ghToggleWarn" class="visually-hidden">Attention : cela affiche le jeton a l'ecran.</span>
+          <div id="ghTokenHelp" class="field-hint">
+            Creez un <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">Fine-Grained Token</a> limite au seul depot prive <code>alogean/askuzh_board_data</code> avec la permission <strong>Contents : Read and write</strong>. Le jeton reste uniquement dans le <code>localStorage</code> de votre navigateur et chaque modification met a jour automatiquement <code>board.json</code> et <code>BOARD.md</code> sur GitHub.
+          </div>
+        </div>
+      </div>
+
+      <div class="dialog-footer">
+        <button type="button" id="btnDisconnectGh">Deconnecter</button>
+        <button type="button" id="btnForcePushGh">Forcer local -&gt; GitHub</button>
+        <button type="button" id="btnPullGh">Recharger depuis GitHub</button>
+        <button type="submit" id="btnSubmitGh" class="btn-primary">Enregistrer et synchroniser</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Dialog configuration des lignes et sous-colonnes DOING -->
+  <dialog id="structureDialog" closedby="any" aria-labelledby="structureDialogTitle">
+    <div class="dialog-header">
+      <h2 id="structureDialogTitle">Configurer les colonnes DOING et les lignes</h2>
+      <form method="dialog">
+        <button type="submit" value="close" class="btn-ghost" aria-label="Fermer">✕</button>
+      </form>
+    </div>
+    <div class="dialog-body">
+      <section class="config-section">
+        <h3>Sous-colonnes DOING</h3>
+        <div id="doingColsConfigList" class="config-list"></div>
+        <button type="button" id="btnAddDoingCol">+ Ajouter une sous-colonne DOING</button>
+      </section>
+
+      <section class="config-section">
+        <h3>Lignes d'activites</h3>
+        <div id="lanesConfigList" class="config-list"></div>
+        <button type="button" id="btnAddLane">+ Ajouter une ligne d'activite</button>
+      </section>
+
+      <section class="config-section">
+        <h3>Actions locales</h3>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button type="button" id="btnSaveHtml">Telecharger copie .html autonome</button>
+          <button type="button" id="btnClearCards">Vider tous les post-its</button>
+        </div>
+      </section>
+    </div>
+    <div class="dialog-footer">
+      <form method="dialog">
+        <button type="submit" value="done" class="btn-primary" autofocus>Fermer</button>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- Dialog Export Markdown -->
+  <dialog id="markdownDialog" closedby="any" aria-labelledby="markdownDialogTitle">
+    <div class="dialog-header">
+      <h2 id="markdownDialogTitle">Export Markdown (synchronise en direct)</h2>
+      <form method="dialog">
+        <button type="submit" value="close" class="btn-ghost" aria-label="Fermer">✕</button>
+      </form>
+    </div>
+    <div class="dialog-body">
+      <textarea id="markdownOutput" class="md-preview" readonly aria-label="Contenu Markdown"></textarea>
+    </div>
+    <div class="dialog-footer">
+      <button type="button" id="btnCopyMd">Copier le Markdown</button>
+      <button type="button" id="btnDownloadMd" class="btn-primary" autofocus>Telecharger .md</button>
+      <form method="dialog">
+        <button type="submit" value="close">Fermer</button>
+      </form>
+    </div>
+  </dialog>
+
+  <script id="embedded-board-state" type="application/json">null</script>
+
+  <script>
+    (() => {
+      const STORAGE_KEY = 'askuzh_board_state_v1';
+      const GH_CONFIG_KEY = 'askuzh_board_gh_config_v1';
+      const DEFAULT_DATA_REPO = 'alogean/askuzh_board_data';
+      const DEFAULT_BRANCH = 'main';
+
+      const COLORS = [
+        { id: 'lilac', label: 'Violet' },
+        { id: 'yellow', label: 'Jaune' },
+        { id: 'mint', label: 'Vert' },
+        { id: 'sky', label: 'Bleu' },
+        { id: 'coral', label: 'Corail' },
+        { id: 'sand', label: 'Sable' }
+      ];
+
+      const uid = () => 'id_' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
+
+      // Etat neutre public (aucune donnee interne dans le code public GitHub Pages)
+      const createEmptyPublicState = () => ({
+        title: 'Project Board',
+        updatedAt: new Date().toISOString(),
+        doingColumns: [
+          { id: 'doing_1', name: 'Col 1' },
+          { id: 'doing_2', name: 'Col 2' },
+          { id: 'doing_3', name: 'Col 3' }
+        ],
+        lanes: [
+          { id: 'lane_1', name: 'Product Dev' },
+          { id: 'lane_2', name: 'Integration' },
+          { id: 'lane_3', name: 'Comms' },
+          { id: 'lane_4', name: 'Project Management' }
+        ],
+        cards: [
+          {
+            id: 'welcome_card',
+            laneId: 'lane_1',
+            colId: 'todo',
+            color: 'yellow',
+            text: 'Cliquez sur "Sync GitHub" en haut a droite pour connecter le depot prive et charger le board.'
+          }
+        ]
+      });
+
+      const loadGhConfig = () => {
+        try {
+          const raw = localStorage.getItem(GH_CONFIG_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            return {
+              repo: parsed.repo || DEFAULT_DATA_REPO,
+              branch: parsed.branch || DEFAULT_BRANCH,
+              token: parsed.token || '',
+              lastCommitSha: parsed.lastCommitSha || ''
+            };
+          }
+        } catch (_) {}
+        return { repo: DEFAULT_DATA_REPO, branch: DEFAULT_BRANCH, token: '', lastCommitSha: '' };
+      };
+
+      let ghConfig = loadGhConfig();
+
+      const saveGhConfig = () => {
+        try {
+          localStorage.setItem(GH_CONFIG_KEY, JSON.stringify(ghConfig));
+        } catch (_) {}
+      };
+
+      const loadInitialState = () => {
+        const embeddedEl = document.getElementById('embedded-board-state');
+        let embedded = null;
+        if (embeddedEl && embeddedEl.textContent.trim() !== 'null') {
+          try { embedded = JSON.parse(embeddedEl.textContent); } catch (_) {}
+        }
+        try {
+          const saved = localStorage.getItem(STORAGE_KEY);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (!embedded || new Date(parsed.updatedAt || 0) >= new Date(embedded.updatedAt || 0)) {
+              return parsed;
+            }
+          }
+        } catch (_) {}
+        return embedded || createEmptyPublicState();
+      };
+
+      let state = loadInitialState();
+      const undoStack = [];
+      const MAX_UNDO = 30;
+
+      const boardTable = document.getElementById('boardTable');
+      const boardViewport = document.getElementById('boardViewport');
+      const boardTitleInput = document.getElementById('boardTitleInput');
+      const statusMeta = document.getElementById('statusMeta');
+      const btnUndo = document.getElementById('btnUndo');
+      const btnOpenGithub = document.getElementById('btnOpenGithub');
+      const srAnnouncer = document.getElementById('srAnnouncer');
+      const structureDialog = document.getElementById('structureDialog');
+      const markdownDialog = document.getElementById('markdownDialog');
+      const githubDialog = document.getElementById('githubDialog');
+      const markdownOutput = document.getElementById('markdownOutput');
+      const ghDialogStatus = document.getElementById('ghDialogStatus');
+      const ghRepoInput = document.getElementById('ghRepoInput');
+      const ghBranchInput = document.getElementById('ghBranchInput');
+      const ghTokenInput = document.getElementById('ghTokenInput');
+      const btnToggleToken = document.getElementById('btnToggleToken');
+      const toast = document.getElementById('toast');
+      const toastText = document.getElementById('toastText');
+      const toastAction = document.getElementById('toastAction');
+
+      let toastTimer = null;
+      let announceTimer = null;
+      let remotePushTimer = null;
+      let pushInFlight = false;
+      let pushQueuedAfterFlight = false;
+      let dirtyForRemote = false;
+
+      const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      const announce = (msg, delay = 60) => {
+        clearTimeout(announceTimer);
+        srAnnouncer.textContent = '';
+        announceTimer = setTimeout(() => {
+          srAnnouncer.textContent = msg;
+        }, delay);
+      };
+
+      const showToast = (message, undoCallback = null) => {
+        clearTimeout(toastTimer);
+        toastText.textContent = message;
+        if (undoCallback) {
+          toastAction.hidden = false;
+          toastAction.onclick = () => {
+            toast.hidden = true;
+            undoCallback();
+          };
+        } else {
+          toastAction.hidden = true;
+          toastAction.onclick = null;
+        }
+        toast.hidden = false;
+        toastTimer = setTimeout(() => {
+          toast.hidden = true;
+        }, 4500);
+      };
+
+      const setSyncUiState = (mode, detailText = '') => {
+        btnOpenGithub.dataset.state = mode;
+        const labels = {
+          disconnected: '○ Sync GitHub',
+          pending: '● En attente...',
+          syncing: '↻ Synchronisation...',
+          synced: '✓ Synchronise',
+          conflict: '! Version distante',
+          error: '! Erreur GitHub'
+        };
+        btnOpenGithub.textContent = labels[mode] || '○ Sync GitHub';
+        if (detailText) {
+          ghDialogStatus.textContent = detailText;
+        }
+      };
+
+      const getAllColumnsFor = (targetState) => [
+        { id: 'todo', name: 'TODO', group: 'TODO' },
+        ...targetState.doingColumns.map((c) => ({ id: c.id, name: c.name, group: 'DOING' })),
+        { id: 'done', name: 'DONE', group: 'DONE' }
+      ];
+
+      const generateMarkdownFor = (targetState) => {
+        const lines = [];
+        const dateStr = new Date(targetState.updatedAt || Date.now()).toLocaleString('fr-CH', {
+          dateStyle: 'medium',
+          timeStyle: 'short'
+        });
+        lines.push(`# ${targetState.title || 'Board'}`);
+        lines.push('');
+        lines.push(`*Derniere mise a jour : ${dateStr}*`);
+        lines.push('');
+
+        const cols = getAllColumnsFor(targetState);
+        targetState.lanes.forEach((lane, idx) => {
+          lines.push(`## ${idx + 1}. ${lane.name}`);
+          lines.push('');
+          let laneHasCards = false;
+
+          cols.forEach((col) => {
+            const cellCards = targetState.cards.filter((c) => c.laneId === lane.id && c.colId === col.id && c.text.trim() !== '');
+            if (!cellCards.length) return;
+            laneHasCards = true;
+            const heading = col.group === 'DOING' ? `DOING - ${col.name}` : col.name;
+            lines.push(`### ${heading}`);
+            cellCards.forEach((card) => {
+              const rawLines = card.text.trim().split('\n');
+              lines.push(`- ${rawLines[0]}`);
+              for (let i = 1; i < rawLines.length; i++) {
+                const sub = rawLines[i].trim();
+                if (!sub) continue;
+                lines.push(sub.startsWith('-') ? `  ${sub}` : `  - ${sub}`);
+              }
+            });
+            lines.push('');
+          });
+
+          if (!laneHasCards) {
+            lines.push('*(Aucune tache)*');
+            lines.push('');
+          }
+        });
+
+        return lines.join('\n').trim() + '\n';
+      };
+
+      const generateMarkdown = () => generateMarkdownFor(state);
+
+      // Appels API GitHub
+      const ghFetch = async (path, options = {}) => {
+        if (!ghConfig.token || !ghConfig.repo) {
+          throw new Error('Configuration GitHub incomplete');
+        }
+        const res = await fetch(`https://api.github.com/repos/${ghConfig.repo}${path}`, {
+          ...options,
+          cache: 'no-store',
+          headers: {
+            'Accept': 'application/vnd.github+json',
+            'Authorization': `Bearer ${ghConfig.token}`,
+            'X-GitHub-Api-Version': '2022-11-28',
+            ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+            ...(options.headers || {})
+          }
+        });
+        if (!res.ok) {
+          let errDetail = `${res.status}`;
+          try {
+            const data = await res.json();
+            if (data && data.message) errDetail = `${res.status} : ${data.message}`;
+          } catch (_) {}
+          const err = new Error(errDetail);
+          err.status = res.status;
+          throw err;
+        }
+        return res.json();
+      };
+
+      const decodeBase64Utf8 = (b64) => {
+        const clean = b64.replace(/\s/g, '');
+        const bin = atob(clean);
+        const bytes = Uint8Array.from(bin, (ch) => ch.charCodeAt(0));
+        return new TextDecoder('utf-8').decode(bytes);
+      };
+
+      const pullFromGitHub = async ({ silent = false } = {}) => {
+        if (!ghConfig.token || !ghConfig.repo) return false;
+        setSyncUiState('syncing', `Lecture depuis ${ghConfig.repo} (${ghConfig.branch})...`);
+        try {
+          const refData = await ghFetch(`/git/ref/heads/${encodeURIComponent(ghConfig.branch)}`);
+          const headSha = refData.object.sha;
+
+          if (silent && headSha === ghConfig.lastCommitSha && state.cards.length > 0 && state.cards[0]?.id !== 'welcome_card') {
+            setSyncUiState('synced', `Connecte a ${ghConfig.repo} (commit ${headSha.slice(0, 7)}).`);
+            return true;
+          }
+
+          const fileData = await ghFetch(`/contents/board.json?ref=${headSha}`);
+          const jsonText = decodeBase64Utf8(fileData.content);
+          const remoteState = JSON.parse(jsonText);
+
+          state = remoteState;
+          ghConfig.lastCommitSha = headSha;
+          dirtyForRemote = false;
+          saveGhConfig();
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+          } catch (_) {}
+          renderBoard();
+          setSyncUiState('synced', `Synchronise avec ${ghConfig.repo} (commit ${headSha.slice(0, 7)}).`);
+          if (!silent) {
+            showToast('Board charge depuis GitHub');
+          }
+          return true;
+        } catch (err) {
+          setSyncUiState('error', `Echec de lecture GitHub (${err.message}). Verifiez le depot et les droits du token.`);
+          if (!silent) {
+            showToast(`Erreur GitHub : ${err.message}`);
+          }
+          return false;
+        }
+      };
+
+      const pushToGitHub = async ({ force = false } = {}) => {
+        if (!ghConfig.token || !ghConfig.repo) return false;
+        if (pushInFlight) {
+          pushQueuedAfterFlight = true;
+          return false;
+        }
+
+        clearTimeout(remotePushTimer);
+        pushInFlight = true;
+        const snapshotString = JSON.stringify(state, null, 2) + '\n';
+        const snapshotMd = generateMarkdownFor(state);
+        const snapshotUpdatedAt = state.updatedAt;
+
+        setSyncUiState('syncing', `Enregistrement vers ${ghConfig.repo}...`);
+
+        try {
+          const refData = await ghFetch(`/git/ref/heads/${encodeURIComponent(ghConfig.branch)}`);
+          const latestHeadSha = refData.object.sha;
+
+          if (!force && ghConfig.lastCommitSha && latestHeadSha !== ghConfig.lastCommitSha) {
+            setSyncUiState(
+              'conflict',
+              `Une modification plus recente existe sur GitHub (commit ${latestHeadSha.slice(0, 7)}). Rechargez depuis GitHub ou forcez l'envoi local.`
+            );
+            showToast('Modification distante detectee sur GitHub');
+            return false;
+          }
+
+          const commitData = await ghFetch(`/git/commits/${latestHeadSha}`);
+          const baseTreeSha = commitData.tree.sha;
+
+          const newTree = await ghFetch('/git/trees', {
+            method: 'POST',
+            body: JSON.stringify({
+              base_tree: baseTreeSha,
+              tree: [
+                { path: 'board.json', mode: '100644', type: 'blob', content: snapshotString },
+                { path: 'BOARD.md', mode: '100644', type: 'blob', content: snapshotMd }
+              ]
+            })
+          });
+
+          const stamp = new Date().toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
+          const newCommit = await ghFetch('/git/commits', {
+            method: 'POST',
+            body: JSON.stringify({
+              message: `Update board (${stamp})`,
+              tree: newTree.sha,
+              parents: [latestHeadSha]
+            })
+          });
+
+          await ghFetch(`/git/refs/heads/${encodeURIComponent(ghConfig.branch)}`, {
+            method: 'PATCH',
+            body: JSON.stringify({
+              sha: newCommit.sha,
+              force: Boolean(force)
+            })
+          });
+
+          ghConfig.lastCommitSha = newCommit.sha;
+          saveGhConfig();
+
+          if (state.updatedAt === snapshotUpdatedAt) {
+            dirtyForRemote = false;
+            setSyncUiState('synced', `Synchronise sur ${ghConfig.repo} (commit ${newCommit.sha.slice(0, 7)}).`);
+          } else {
+            pushQueuedAfterFlight = true;
+          }
+          return true;
+        } catch (err) {
+          setSyncUiState('error', `Echec d'ecriture sur GitHub (${err.message}). Vos changements restent sauvegardes localement.`);
+          return false;
+        } finally {
+          pushInFlight = false;
+          if (pushQueuedAfterFlight) {
+            pushQueuedAfterFlight = false;
+            scheduleRemotePush();
+          }
+        }
+      };
+
+      const scheduleRemotePush = () => {
+        if (!ghConfig.token || !ghConfig.repo) return;
+        dirtyForRemote = true;
+        setSyncUiState('pending', 'Modifications locales en attente de synchronisation...');
+        clearTimeout(remotePushTimer);
+        remotePushTimer = setTimeout(() => {
+          pushToGitHub({ force: false });
+        }, 1200);
+      };
+
+      const pushUndo = () => {
+        undoStack.push(JSON.stringify(state));
+        if (undoStack.length > MAX_UNDO) undoStack.shift();
+        btnUndo.disabled = undoStack.length === 0;
+      };
+
+      const performUndo = () => {
+        if (!undoStack.length) return;
+        state = JSON.parse(undoStack.pop());
+        btnUndo.disabled = undoStack.length === 0;
+        persistState();
+        renderBoard();
+        showToast('Modification annulee');
+      };
+
+      const updateStatusIndicator = () => {
+        const total = state.cards.filter((c) => c.text.trim() !== '').length;
+        const t = new Date(state.updatedAt).toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        statusMeta.textContent = `${total} post-its · Mis a jour a ${t}`;
+        if (markdownDialog.open) {
+          markdownOutput.value = generateMarkdown();
+        }
+      };
+
+      const persistState = ({ skipRemote = false } = {}) => {
+        state.updatedAt = new Date().toISOString();
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch (_) {}
+        updateStatusIndicator();
+        if (!skipRemote) {
+          scheduleRemotePush();
+        }
+      };
+
+      const autoResizeTextarea = (ta) => {
+        ta.style.height = 'auto';
+        ta.style.height = Math.max(38, ta.scrollHeight) + 'px';
+      };
+
+      const syncOrderFromDOM = () => {
+        const orderedCards = [];
+        const cardMap = new Map(state.cards.map((c) => [c.id, c]));
+        boardTable.querySelectorAll('.board-cell').forEach((cell) => {
+          const laneId = cell.dataset.laneId;
+          const colId = cell.dataset.colId;
+          cell.querySelectorAll('.note-card').forEach((cardEl) => {
+            const card = cardMap.get(cardEl.dataset.cardId);
+            if (card) {
+              card.laneId = laneId;
+              card.colId = colId;
+              orderedCards.push(card);
+            }
+          });
+        });
+        if (orderedCards.length === state.cards.length) {
+          state.cards = orderedCards;
+        }
+      };
+
+      const moveNodeAtomically = (container, item, refNode) => {
+        if (refNode === item || item.nextElementSibling === refNode) return false;
+        if ('moveBefore' in Element.prototype && item.parentElement === container) {
+          container.moveBefore(item, refNode || null);
+        } else if (refNode) {
+          refNode.before(item);
+        } else {
+          container.append(item);
+        }
+        return true;
+      };
+
+      let activeDrag = null;
+      let kbGrab = null;
+
+      const clearAllDropMarkers = () => {
+        boardTable.querySelectorAll('.cell-cards[data-drop]').forEach((el) => {
+          el.removeAttribute('data-drop');
+          el.style.removeProperty('--drop-x');
+          el.style.removeProperty('--drop-y');
+          el.style.removeProperty('--drop-w');
+        });
+        boardTable.querySelectorAll('.board-cell.is-drop-target').forEach((el) => {
+          el.classList.remove('is-drop-target');
+        });
+      };
+
+      const computeDropSpotInList = (cardsContainer, clientY, draggedCard) => {
+        const siblings = Array.from(cardsContainer.querySelectorAll('.note-card'));
+        const cRect = cardsContainer.getBoundingClientRect();
+        const relY = clientY - cRect.top;
+        let refNode = null;
+        for (const sib of siblings) {
+          const mid = sib.offsetTop + sib.offsetHeight / 2;
+          if (relY < mid) {
+            refNode = sib;
+            break;
+          }
+        }
+        const isNoOp = refNode === draggedCard || (draggedCard.parentElement === cardsContainer && draggedCard.nextElementSibling === refNode);
+        return { cardsContainer, refNode, isNoOp };
+      };
+
+      const renderDropMarker = (spot, draggedCard) => {
+        clearAllDropMarkers();
+        if (!spot) return;
+        const cell = spot.cardsContainer.closest('.board-cell');
+        if (cell) cell.classList.add('is-drop-target');
+        if (spot.isNoOp) return;
+
+        const cRect = spot.cardsContainer.getBoundingClientRect();
+        let markerY = cRect.top + 2;
+        const siblings = Array.from(spot.cardsContainer.querySelectorAll('.note-card')).filter((n) => n !== draggedCard);
+
+        if (siblings.length === 0) {
+          markerY = cRect.top + 6;
+        } else if (spot.refNode) {
+          const idx = siblings.indexOf(spot.refNode);
+          const nextRect = spot.refNode.getBoundingClientRect();
+          if (idx > 0) {
+            const prevRect = siblings[idx - 1].getBoundingClientRect();
+            markerY = (prevRect.bottom + nextRect.top) / 2;
+          } else {
+            markerY = nextRect.top - 4;
+          }
+        } else {
+          const lastRect = siblings[siblings.length - 1].getBoundingClientRect();
+          markerY = lastRect.bottom + 4;
+        }
+
+        spot.cardsContainer.setAttribute('data-drop', '');
+        spot.cardsContainer.style.setProperty('--drop-x', `${cRect.left}px`);
+        spot.cardsContainer.style.setProperty('--drop-y', `${markerY}px`);
+        spot.cardsContainer.style.setProperty('--drop-w', `${cRect.width}px`);
+      };
+
+      const updatePointerDragPosition = () => {
+        if (!activeDrag) return;
+        const { cardEl, startX, startY, lastX, lastY, startScrollLeft, startScrollTop } = activeDrag;
+        const dx = (lastX - startX) + (boardViewport.scrollLeft - startScrollLeft);
+        const dy = (lastY - startY) + (boardViewport.scrollTop - startScrollTop);
+        cardEl.style.translate = `${dx}px ${dy}px`;
+
+        const hit = document.elementFromPoint(lastX, lastY);
+        const targetCell = hit ? hit.closest('.board-cell') : null;
+        if (targetCell) {
+          const container = targetCell.querySelector('.cell-cards');
+          const spot = computeDropSpotInList(container, lastY, cardEl);
+          activeDrag.currentSpot = spot;
+          renderDropMarker(spot, cardEl);
+        } else {
+          activeDrag.currentSpot = null;
+          clearAllDropMarkers();
+        }
+      };
+
+      const startAutoScrollLoop = () => {
+        let lastTime = performance.now();
+        const step = (now) => {
+          if (!activeDrag) return;
+          const dt = Math.min(40, now - lastTime) / 16.67;
+          lastTime = now;
+
+          const vpRect = boardViewport.getBoundingClientRect();
+          const zone = 56;
+          let vx = 0;
+          let vy = 0;
+
+          if (activeDrag.lastX < vpRect.left + zone) {
+            vx = -Math.min(14, ((vpRect.left + zone - activeDrag.lastX) / zone) * 10) * dt;
+          } else if (activeDrag.lastX > vpRect.right - zone) {
+            vx = Math.min(14, ((activeDrag.lastX - (vpRect.right - zone)) / zone) * 10) * dt;
+          }
+
+          if (activeDrag.lastY < vpRect.top + zone) {
+            vy = -Math.min(14, ((vpRect.top + zone - activeDrag.lastY) / zone) * 10) * dt;
+          } else if (activeDrag.lastY > vpRect.bottom - zone) {
+            vy = Math.min(14, ((activeDrag.lastY - (vpRect.bottom - zone)) / zone) * 10) * dt;
+          }
+
+          if (vx !== 0 || vy !== 0) {
+            boardViewport.scrollLeft += vx;
+            boardViewport.scrollTop += vy;
+            updatePointerDragPosition();
+          }
+
+          activeDrag.rafId = requestAnimationFrame(step);
+        };
+        activeDrag.rafId = requestAnimationFrame(step);
+      };
+
+      const finishPointerDrag = (cancelled) => {
+        if (!activeDrag) return;
+        const { cardEl, handleEl, pointerId, currentSpot, rafId } = activeDrag;
+        cancelAnimationFrame(rafId);
+        activeDrag = null;
+
+        document.documentElement.classList.remove('is-dragging');
+        clearAllDropMarkers();
+
+        const beforeRect = cardEl.getBoundingClientRect();
+        cardEl.style.translate = '';
+        cardEl.classList.remove('is-pointer-dragging');
+
+        let moved = false;
+        if (!cancelled && currentSpot && !currentSpot.isNoOp) {
+          pushUndo();
+          moved = moveNodeAtomically(currentSpot.cardsContainer, cardEl, currentSpot.refNode);
+          if (moved) {
+            syncOrderFromDOM();
+            persistState();
+          }
+        }
+
+        try {
+          if (handleEl.hasPointerCapture(pointerId)) {
+            handleEl.releasePointerCapture(pointerId);
+          }
+        } catch (_) {}
+
+        cardEl.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+
+        if (!prefersReducedMotion()) {
+          cardEl.getAnimations().forEach((a) => a.finish());
+          const afterRect = cardEl.getBoundingClientRect();
+          const dx = beforeRect.left - afterRect.left;
+          const dy = beforeRect.top - afterRect.top;
+          if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+            const anim = cardEl.animate(
+              [{ translate: `${dx}px ${dy}px` }, { translate: '0px 0px' }],
+              { duration: 160, easing: 'cubic-bezier(0.2, 0, 0, 1)' }
+            );
+            anim.onfinish = () => {
+              if (!activeDrag || activeDrag.cardEl !== cardEl) {
+                cardEl.classList.remove('is-grabbed');
+              }
+            };
+          } else {
+            cardEl.classList.remove('is-grabbed');
+          }
+        } else {
+          cardEl.classList.remove('is-grabbed');
+        }
+
+        if (cancelled) {
+          announce('Deplacement annule');
+        } else if (moved) {
+          const cell = cardEl.closest('.board-cell');
+          announce(`Post-it deplace vers ${cell?.dataset.cellLabel || 'nouvelle cellule'}`, 450);
+        }
+      };
+
+      document.addEventListener('pointermove', (e) => {
+        if (!activeDrag || e.pointerId !== activeDrag.pointerId) return;
+        activeDrag.lastX = e.clientX;
+        activeDrag.lastY = e.clientY;
+        updatePointerDragPosition();
+      });
+
+      document.addEventListener('pointerup', (e) => {
+        if (!activeDrag || e.pointerId !== activeDrag.pointerId) return;
+        finishPointerDrag(false);
+      });
+
+      document.addEventListener('pointercancel', (e) => {
+        if (!activeDrag || e.pointerId !== activeDrag.pointerId) return;
+        finishPointerDrag(true);
+      });
+
+      const createCardElement = (card) => {
+        const el = document.createElement('article');
+        el.className = 'note-card';
+        el.dataset.cardId = card.id;
+        el.dataset.color = card.color || 'lilac';
+
+        const toolbar = document.createElement('div');
+        toolbar.className = 'note-toolbar';
+
+        const handle = document.createElement('button');
+        handle.type = 'button';
+        handle.className = 'drag-handle';
+        handle.textContent = '⋮⋮';
+        handle.setAttribute('aria-pressed', 'false');
+        const shortLabel = (card.text.split('\n')[0] || 'Post-it sans texte').slice(0, 36);
+        handle.setAttribute('aria-label', `Deplacer le post-it : ${shortLabel}`);
+
+        const kbHint = document.createElement('span');
+        kbHint.className = 'kb-hint';
+        kbHint.setAttribute('aria-hidden', 'true');
+        kbHint.textContent = 'Espace pour saisir';
+
+        const actions = document.createElement('div');
+        actions.className = 'note-actions';
+
+        COLORS.forEach((c) => {
+          const dot = document.createElement('button');
+          dot.type = 'button';
+          dot.className = 'color-dot';
+          dot.dataset.c = c.id;
+          dot.title = `Couleur : ${c.label}`;
+          dot.setAttribute('aria-label', `Couleur ${c.label}`);
+          if ((card.color || 'lilac') === c.id) {
+            dot.setAttribute('aria-current', 'true');
+          }
+          dot.addEventListener('click', () => {
+            if (card.color === c.id) return;
+            pushUndo();
+            card.color = c.id;
+            el.dataset.color = c.id;
+            actions.querySelectorAll('.color-dot').forEach((d) => {
+              d.setAttribute('aria-current', d.dataset.c === c.id ? 'true' : 'false');
+            });
+            persistState();
+          });
+          actions.appendChild(dot);
+        });
+
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'delete-note-btn';
+        delBtn.textContent = '×';
+        delBtn.title = 'Supprimer ce post-it';
+        delBtn.setAttribute('aria-label', 'Supprimer ce post-it');
+        delBtn.addEventListener('click', () => {
+          pushUndo();
+          state.cards = state.cards.filter((item) => item.id !== card.id);
+          el.remove();
+          persistState();
+          showToast('Post-it supprime', performUndo);
+        });
+        actions.appendChild(delBtn);
+
+        toolbar.appendChild(handle);
+        toolbar.appendChild(actions);
+
+        const textarea = document.createElement('textarea');
+        textarea.className = 'note-textarea';
+        textarea.placeholder = 'Ecrire une tache...';
+        textarea.value = card.text;
+        textarea.rows = 2;
+
+        let textSnapshotTaken = false;
+        textarea.addEventListener('focus', () => {
+          textSnapshotTaken = false;
+        });
+        textarea.addEventListener('input', () => {
+          if (!textSnapshotTaken) {
+            pushUndo();
+            textSnapshotTaken = true;
+          }
+          card.text = textarea.value;
+          const labelPreview = (card.text.split('\n')[0] || 'Post-it sans texte').slice(0, 36);
+          handle.setAttribute('aria-label', `Deplacer le post-it : ${labelPreview}`);
+          autoResizeTextarea(textarea);
+          persistState();
+        });
+
+        handle.addEventListener('pointerdown', (e) => {
+          if (e.button !== 0 || activeDrag) return;
+          e.preventDefault();
+          handle.setPointerCapture(e.pointerId);
+          document.documentElement.classList.add('is-dragging');
+          el.classList.add('is-grabbed', 'is-pointer-dragging');
+          activeDrag = {
+            pointerId: e.pointerId,
+            cardEl: el,
+            handleEl: handle,
+            startX: e.clientX,
+            startY: e.clientY,
+            lastX: e.clientX,
+            lastY: e.clientY,
+            startScrollLeft: boardViewport.scrollLeft,
+            startScrollTop: boardViewport.scrollTop,
+            currentSpot: null,
+            rafId: 0
+          };
+          startAutoScrollLoop();
+        });
+
+        handle.addEventListener('keydown', (e) => {
+          if (e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault();
+            if (!kbGrab) {
+              kbGrab = {
+                cardEl: el,
+                handleEl: handle,
+                originContainer: el.parentElement,
+                originNext: el.nextElementSibling,
+                snapshot: JSON.stringify(state),
+                ignoringBlur: false
+              };
+              handle.setAttribute('aria-pressed', 'true');
+              el.classList.add('is-grabbed');
+              kbHint.textContent = 'Fleches : deplacer · Espace : poser · Echap : annuler';
+              announce('Post-it saisi. Utilisez les fleches pour le deplacer, Espace pour le deposer, Echap pour annuler.');
+            } else if (kbGrab.cardEl === el) {
+              const changed = JSON.stringify(state) !== kbGrab.snapshot;
+              if (changed) {
+                undoStack.push(kbGrab.snapshot);
+                btnUndo.disabled = false;
+                persistState();
+              }
+              handle.setAttribute('aria-pressed', 'false');
+              el.classList.remove('is-grabbed');
+              kbHint.textContent = 'Espace pour saisir';
+              const cellLabel = el.closest('.board-cell')?.dataset.cellLabel || '';
+              kbGrab = null;
+              if (changed) announce(`Post-it depose dans ${cellLabel}`, 450);
+            }
+            return;
+          }
+
+          if (!kbGrab || kbGrab.cardEl !== el) return;
+
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            kbGrab.ignoringBlur = true;
+            moveNodeAtomically(kbGrab.originContainer, el, kbGrab.originNext);
+            syncOrderFromDOM();
+            handle.setAttribute('aria-pressed', 'false');
+            el.classList.remove('is-grabbed');
+            kbHint.textContent = 'Espace pour saisir';
+            el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+            handle.focus({ preventScroll: true });
+            kbGrab = null;
+            announce('Deplacement annule', 450);
+            return;
+          }
+
+          if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+            e.preventDefault();
+            const cell = el.closest('.board-cell');
+            const laneIdx = state.lanes.findIndex((l) => l.id === cell.dataset.laneId);
+            const cols = getAllColumnsFor(state);
+            const colIdx = cols.findIndex((c) => c.id === cell.dataset.colId);
+
+            kbGrab.ignoringBlur = true;
+            let moved = false;
+
+            if (e.key === 'ArrowUp') {
+              if (el.previousElementSibling) {
+                moved = moveNodeAtomically(el.parentElement, el, el.previousElementSibling);
+              } else if (laneIdx > 0) {
+                const prevCell = boardTable.querySelector(`.board-cell[data-lane-id="${state.lanes[laneIdx - 1].id}"][data-col-id="${cols[colIdx].id}"] .cell-cards`);
+                if (prevCell) moved = moveNodeAtomically(prevCell, el, null);
+              }
+            } else if (e.key === 'ArrowDown') {
+              if (el.nextElementSibling) {
+                moved = moveNodeAtomically(el.parentElement, el, el.nextElementSibling.nextElementSibling);
+              } else if (laneIdx < state.lanes.length - 1) {
+                const nextCell = boardTable.querySelector(`.board-cell[data-lane-id="${state.lanes[laneIdx + 1].id}"][data-col-id="${cols[colIdx].id}"] .cell-cards`);
+                if (nextCell) moved = moveNodeAtomically(nextCell, el, nextCell.firstElementChild);
+              }
+            } else if (e.key === 'ArrowLeft' && colIdx > 0) {
+              const leftCell = boardTable.querySelector(`.board-cell[data-lane-id="${state.lanes[laneIdx].id}"][data-col-id="${cols[colIdx - 1].id}"] .cell-cards`);
+              if (leftCell) moved = moveNodeAtomically(leftCell, el, null);
+            } else if (e.key === 'ArrowRight' && colIdx < cols.length - 1) {
+              const rightCell = boardTable.querySelector(`.board-cell[data-lane-id="${state.lanes[laneIdx].id}"][data-col-id="${cols[colIdx + 1].id}"] .cell-cards`);
+              if (rightCell) moved = moveNodeAtomically(rightCell, el, null);
+            }
+
+            el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+            handle.focus({ preventScroll: true });
+            kbGrab.ignoringBlur = false;
+
+            if (moved) {
+              syncOrderFromDOM();
+              const destCell = el.closest('.board-cell');
+              announce(`Deplace vers ${destCell?.dataset.cellLabel || ''}`, 500);
+            }
+          }
+        });
+
+        handle.addEventListener('blur', () => {
+          if (kbGrab && kbGrab.cardEl === el && !kbGrab.ignoringBlur) {
+            const changed = JSON.stringify(state) !== kbGrab.snapshot;
+            if (changed) {
+              undoStack.push(kbGrab.snapshot);
+              btnUndo.disabled = false;
+              persistState();
+            }
+            handle.setAttribute('aria-pressed', 'false');
+            el.classList.remove('is-grabbed');
+            kbHint.textContent = 'Espace pour saisir';
+            kbGrab = null;
+          }
+        });
+
+        el.appendChild(toolbar);
+        el.appendChild(kbHint);
+        el.appendChild(textarea);
+
+        requestAnimationFrame(() => autoResizeTextarea(textarea));
+        return el;
+      };
+
+      const addCardToCell = (laneId, colId, focusTextarea = true) => {
+        pushUndo();
+        const newCard = {
+          id: uid(),
+          laneId,
+          colId,
+          color: 'lilac',
+          text: ''
+        };
+        state.cards.push(newCard);
+        persistState();
+
+        const cell = boardTable.querySelector(`.board-cell[data-lane-id="${laneId}"][data-col-id="${colId}"] .cell-cards`);
+        if (cell) {
+          const cardEl = createCardElement(newCard);
+          cell.appendChild(cardEl);
+          if (focusTextarea) {
+            cardEl.querySelector('.note-textarea').focus();
+          }
+        }
+      };
+
+      const renderBoard = () => {
+        boardTitleInput.value = state.title || 'Board';
+        const doingCount = Math.max(1, state.doingColumns.length);
+        boardTable.style.setProperty('--doing-count', String(doingCount));
+        boardTable.innerHTML = '';
+
+        const corner = document.createElement('div');
+        corner.className = 'hdr-corner';
+        corner.innerHTML = '<span>Activites</span>';
+        boardTable.appendChild(corner);
+
+        const hdrTodo = document.createElement('div');
+        hdrTodo.className = 'hdr-main hdr-todo';
+        hdrTodo.textContent = 'TODO';
+        boardTable.appendChild(hdrTodo);
+
+        const hdrDoing = document.createElement('div');
+        hdrDoing.className = 'hdr-main hdr-doing-group';
+        hdrDoing.innerHTML = '<span>DOING</span>';
+        const editColsQuick = document.createElement('button');
+        editColsQuick.type = 'button';
+        editColsQuick.className = 'btn-ghost';
+        editColsQuick.title = 'Editer les sous-colonnes DOING';
+        editColsQuick.setAttribute('aria-label', 'Editer les sous-colonnes DOING');
+        editColsQuick.textContent = '✎';
+        editColsQuick.addEventListener('click', openStructureModal);
+        hdrDoing.appendChild(editColsQuick);
+        boardTable.appendChild(hdrDoing);
+
+        const hdrDone = document.createElement('div');
+        hdrDone.className = 'hdr-main hdr-done';
+        hdrDone.textContent = 'DONE';
+        boardTable.appendChild(hdrDone);
+
+        state.doingColumns.forEach((col, idx) => {
+          const sub = document.createElement('div');
+          sub.className = 'hdr-sub' + (idx === state.doingColumns.length - 1 ? ' last-doing' : '');
+          sub.style.gridRow = '2';
+          sub.style.gridColumn = String(3 + idx);
+
+          const span = document.createElement('span');
+          span.className = 'inline-label';
+          span.textContent = col.name;
+          span.title = 'Double-cliquer pour renommer';
+          span.addEventListener('dblclick', () => {
+            const next = prompt('Nom de la sous-colonne DOING :', col.name);
+            if (next && next.trim() && next.trim() !== col.name) {
+              pushUndo();
+              col.name = next.trim();
+              persistState();
+              renderBoard();
+            }
+          });
+
+          sub.appendChild(span);
+          boardTable.appendChild(sub);
+        });
+
+        const allCols = getAllColumnsFor(state);
+        state.lanes.forEach((lane) => {
+          const laneHdr = document.createElement('div');
+          laneHdr.className = 'lane-header';
+
+          const tag = document.createElement('div');
+          tag.className = 'lane-tag inline-label';
+          tag.textContent = lane.name;
+          tag.title = 'Double-cliquer pour renommer la ligne';
+          tag.addEventListener('dblclick', () => {
+            const next = prompt("Nom de la ligne d'activite :", lane.name);
+            if (next && next.trim() && next.trim() !== lane.name) {
+              pushUndo();
+              lane.name = next.trim();
+              persistState();
+              renderBoard();
+            }
+          });
+
+          const countInLane = state.cards.filter((c) => c.laneId === lane.id && c.text.trim() !== '').length;
+          const meta = document.createElement('div');
+          meta.className = 'lane-meta';
+          meta.innerHTML = `<span>${countInLane} tache${countInLane > 1 ? 's' : ''}</span>`;
+
+          laneHdr.appendChild(tag);
+          laneHdr.appendChild(meta);
+          boardTable.appendChild(laneHdr);
+
+          allCols.forEach((col, colIdx) => {
+            const cell = document.createElement('div');
+            let cls = 'board-cell';
+            if (col.id === 'todo' || colIdx === allCols.length - 2) cls += ' col-boundary';
+            if (col.id === 'done') cls += ' col-last';
+            cell.className = cls;
+            cell.dataset.laneId = lane.id;
+            cell.dataset.colId = col.id;
+            cell.dataset.cellLabel = `${lane.name} / ${col.group === 'DOING' ? 'DOING ' + col.name : col.name}`;
+
+            const cardsWrap = document.createElement('div');
+            cardsWrap.className = 'cell-cards';
+
+            const cellCards = state.cards.filter((c) => c.laneId === lane.id && c.colId === col.id);
+            cellCards.forEach((card) => {
+              cardsWrap.appendChild(createCardElement(card));
+            });
+
+            const addBtn = document.createElement('button');
+            addBtn.type = 'button';
+            addBtn.className = 'add-card-btn';
+            addBtn.textContent = '+ Post-it';
+            addBtn.addEventListener('click', () => addCardToCell(lane.id, col.id, true));
+
+            cell.addEventListener('dblclick', (e) => {
+              if (e.target === cell || e.target === cardsWrap) {
+                addCardToCell(lane.id, col.id, true);
+              }
+            });
+
+            cell.appendChild(cardsWrap);
+            cell.appendChild(addBtn);
+            boardTable.appendChild(cell);
+          });
+        });
+
+        updateStatusIndicator();
+      };
+
+      boardTable.addEventListener('focusin', (e) => {
+        const card = e.target.closest('.note-card');
+        if (card && e.target.matches(':focus-visible') && card.getAnimations().length === 0) {
+          card.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        }
+      });
+
+      boardTitleInput.addEventListener('change', () => {
+        const val = boardTitleInput.value.trim() || 'Board';
+        if (val !== state.title) {
+          pushUndo();
+          state.title = val;
+          persistState();
+        }
+      });
+
+      // Configuration Lignes & Colonnes
+      const renderStructureConfig = () => {
+        const doingList = document.getElementById('doingColsConfigList');
+        doingList.innerHTML = '';
+        state.doingColumns.forEach((col, idx) => {
+          const row = document.createElement('div');
+          row.className = 'config-row';
+
+          const inp = document.createElement('input');
+          inp.type = 'text';
+          inp.value = col.name;
+          inp.setAttribute('aria-label', `Nom de la sous-colonne ${idx + 1}`);
+          inp.addEventListener('change', () => {
+            if (inp.value.trim()) {
+              pushUndo();
+              col.name = inp.value.trim();
+              persistState();
+              renderBoard();
+            }
+          });
+
+          const btns = document.createElement('div');
+          btns.className = 'config-row-btns';
+
+          const up = document.createElement('button');
+          up.type = 'button';
+          up.textContent = '←';
+          up.title = 'Deplacer a gauche';
+          up.disabled = idx === 0;
+          up.addEventListener('click', () => {
+            pushUndo();
+            [state.doingColumns[idx - 1], state.doingColumns[idx]] = [state.doingColumns[idx], state.doingColumns[idx - 1]];
+            persistState();
+            renderBoard();
+            renderStructureConfig();
+          });
+
+          const down = document.createElement('button');
+          down.type = 'button';
+          down.textContent = '→';
+          down.title = 'Deplacer a droite';
+          down.disabled = idx === state.doingColumns.length - 1;
+          down.addEventListener('click', () => {
+            pushUndo();
+            [state.doingColumns[idx + 1], state.doingColumns[idx]] = [state.doingColumns[idx], state.doingColumns[idx + 1]];
+            persistState();
+            renderBoard();
+            renderStructureConfig();
+          });
+
+          const del = document.createElement('button');
+          del.type = 'button';
+          del.textContent = 'Supprimer';
+          del.disabled = state.doingColumns.length <= 1;
+          del.addEventListener('click', () => {
+            const attached = state.cards.filter((c) => c.colId === col.id);
+            if (attached.length > 0 && !confirm(`Cette sous-colonne contient ${attached.length} post-it(s). Ils seront deplaces dans TODO. Continuer ?`)) {
+              return;
+            }
+            pushUndo();
+            attached.forEach((c) => { c.colId = 'todo'; });
+            state.doingColumns.splice(idx, 1);
+            persistState();
+            renderBoard();
+            renderStructureConfig();
+          });
+
+          btns.append(up, down, del);
+          row.append(inp, btns);
+          doingList.appendChild(row);
+        });
+
+        const lanesList = document.getElementById('lanesConfigList');
+        lanesList.innerHTML = '';
+        state.lanes.forEach((lane, idx) => {
+          const row = document.createElement('div');
+          row.className = 'config-row';
+
+          const inp = document.createElement('input');
+          inp.type = 'text';
+          inp.value = lane.name;
+          inp.setAttribute('aria-label', `Nom de la ligne ${idx + 1}`);
+          inp.addEventListener('change', () => {
+            if (inp.value.trim()) {
+              pushUndo();
+              lane.name = inp.value.trim();
+              persistState();
+              renderBoard();
+            }
+          });
+
+          const btns = document.createElement('div');
+          btns.className = 'config-row-btns';
+
+          const up = document.createElement('button');
+          up.type = 'button';
+          up.textContent = '↑';
+          up.title = 'Monter';
+          up.disabled = idx === 0;
+          up.addEventListener('click', () => {
+            pushUndo();
+            [state.lanes[idx - 1], state.lanes[idx]] = [state.lanes[idx], state.lanes[idx - 1]];
+            persistState();
+            renderBoard();
+            renderStructureConfig();
+          });
+
+          const down = document.createElement('button');
+          down.type = 'button';
+          down.textContent = '↓';
+          down.title = 'Descendre';
+          down.disabled = idx === state.lanes.length - 1;
+          down.addEventListener('click', () => {
+            pushUndo();
+            [state.lanes[idx + 1], state.lanes[idx]] = [state.lanes[idx], state.lanes[idx + 1]];
+            persistState();
+            renderBoard();
+            renderStructureConfig();
+          });
+
+          const del = document.createElement('button');
+          del.type = 'button';
+          del.textContent = 'Supprimer';
+          del.disabled = state.lanes.length <= 1;
+          del.addEventListener('click', () => {
+            const attached = state.cards.filter((c) => c.laneId === lane.id);
+            if (attached.length > 0 && !confirm(`Supprimer la ligne "${lane.name}" et ses ${attached.length} post-it(s) ?`)) {
+              return;
+            }
+            pushUndo();
+            state.cards = state.cards.filter((c) => c.laneId !== lane.id);
+            state.lanes.splice(idx, 1);
+            persistState();
+            renderBoard();
+            renderStructureConfig();
+          });
+
+          btns.append(up, down, del);
+          row.append(inp, btns);
+          lanesList.appendChild(row);
+        });
+      };
+
+      function openStructureModal() {
+        renderStructureConfig();
+        structureDialog.showModal();
+      }
+
+      document.getElementById('btnOpenStructure').addEventListener('click', openStructureModal);
+
+      document.getElementById('btnAddDoingCol').addEventListener('click', () => {
+        pushUndo();
+        state.doingColumns.push({ id: uid(), name: 'NOUVEAU' });
+        persistState();
+        renderBoard();
+        renderStructureConfig();
+      });
+
+      document.getElementById('btnAddLane').addEventListener('click', () => {
+        pushUndo();
+        state.lanes.push({ id: uid(), name: 'Nouvelle activite' });
+        persistState();
+        renderBoard();
+        renderStructureConfig();
+      });
+
+      document.getElementById('btnClearCards').addEventListener('click', () => {
+        if (!confirm('Supprimer tous les post-its en conservant les lignes et colonnes ?')) return;
+        pushUndo();
+        state.cards = [];
+        persistState();
+        renderBoard();
+        showToast('Tous les post-its ont ete retires', performUndo);
+      });
+
+      document.getElementById('btnAddQuick').addEventListener('click', () => {
+        if (!state.lanes.length) return;
+        addCardToCell(state.lanes[0].id, 'todo', true);
+      });
+
+      btnUndo.addEventListener('click', performUndo);
+
+      // Gestion de la modale GitHub
+      btnOpenGithub.addEventListener('click', () => {
+        ghRepoInput.value = ghConfig.repo || DEFAULT_DATA_REPO;
+        ghBranchInput.value = ghConfig.branch || DEFAULT_BRANCH;
+        ghTokenInput.value = ghConfig.token || '';
+        githubDialog.showModal();
+      });
+
+      document.getElementById('btnCloseGhDialog').addEventListener('click', () => {
+        githubDialog.close();
+      });
+
+      btnToggleToken.addEventListener('click', () => {
+        const isShown = ghTokenInput.type === 'text';
+        ghTokenInput.type = isShown ? 'password' : 'text';
+        btnToggleToken.setAttribute('aria-pressed', isShown ? 'false' : 'true');
+        btnToggleToken.textContent = isShown ? 'Afficher' : 'Masquer';
+      });
+
+      document.getElementById('githubConfigForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const submitBtn = document.getElementById('btnSubmitGh');
+        submitBtn.disabled = true;
+        ghConfig.repo = ghRepoInput.value.trim();
+        ghConfig.branch = ghBranchInput.value.trim() || 'main';
+        ghConfig.token = ghTokenInput.value.trim();
+        saveGhConfig();
+
+        const ok = await pullFromGitHub({ silent: false });
+        submitBtn.disabled = false;
+        if (ok) {
+          githubDialog.close();
+        }
+      });
+
+      document.getElementById('btnPullGh').addEventListener('click', async () => {
+        ghConfig.repo = ghRepoInput.value.trim();
+        ghConfig.branch = ghBranchInput.value.trim() || 'main';
+        ghConfig.token = ghTokenInput.value.trim();
+        saveGhConfig();
+        await pullFromGitHub({ silent: false });
+      });
+
+      document.getElementById('btnForcePushGh').addEventListener('click', async () => {
+        ghConfig.repo = ghRepoInput.value.trim();
+        ghConfig.branch = ghBranchInput.value.trim() || 'main';
+        ghConfig.token = ghTokenInput.value.trim();
+        saveGhConfig();
+        const ok = await pushToGitHub({ force: true });
+        if (ok) showToast('Etat local pousse sur GitHub');
+      });
+
+      document.getElementById('btnDisconnectGh').addEventListener('click', () => {
+        ghConfig.token = '';
+        ghConfig.lastCommitSha = '';
+        dirtyForRemote = false;
+        saveGhConfig();
+        ghTokenInput.value = '';
+        setSyncUiState('disconnected', 'Deconnecte. Le jeton a ete retire de ce navigateur.');
+        showToast('Synchronisation GitHub deconnectee');
+      });
+
+      // Export Markdown
+      document.getElementById('btnOpenMarkdown').addEventListener('click', () => {
+        markdownOutput.value = generateMarkdown();
+        markdownDialog.showModal();
+      });
+
+      document.getElementById('btnCopyMd').addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(markdownOutput.value);
+          showToast('Markdown copie dans le presse-papiers');
+        } catch (_) {
+          markdownOutput.select();
+          document.execCommand('copy');
+          showToast('Markdown copie');
+        }
+      });
+
+      const slugify = (str) => (str || 'board').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'board';
+
+      document.getElementById('btnDownloadMd').addEventListener('click', () => {
+        const md = generateMarkdown();
+        const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const datePrefix = new Date().toISOString().slice(0, 10);
+        a.href = url;
+        a.download = `${datePrefix}_${slugify(state.title)}.md`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('Fichier Markdown telecharge');
+      });
+
+      document.getElementById('btnSaveHtml').addEventListener('click', () => {
+        const clone = document.documentElement.cloneNode(true);
+        const embeddedClone = clone.querySelector('#embedded-board-state');
+        if (embeddedClone) {
+          embeddedClone.textContent = JSON.stringify(state).replace(/<\//g, '<\\/');
+        }
+        const clonedTable = clone.querySelector('#boardTable');
+        if (clonedTable) clonedTable.innerHTML = '';
+        clone.querySelectorAll('dialog[open]').forEach((d) => d.removeAttribute('open'));
+        const clonedToast = clone.querySelector('#toast');
+        if (clonedToast) clonedToast.setAttribute('hidden', '');
+
+        const htmlContent = '<!DOCTYPE html>\n' + clone.outerHTML;
+        const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${slugify(state.title)}.html`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('Copie HTML autonome telechargee');
+      });
+
+      for (const dlg of document.querySelectorAll('dialog')) {
+        dlg.addEventListener('close', () => {
+          dlg.returnValue = '';
+        });
+      }
+
+      if (!('closedBy' in HTMLDialogElement.prototype)) {
+        for (const dialog of document.querySelectorAll('dialog[closedby="any"]')) {
+          dialog.addEventListener('click', (event) => {
+            if (event.target !== dialog) return;
+            const rect = dialog.getBoundingClientRect();
+            const isDialogContent = (
+              rect.top <= event.clientY &&
+              event.clientY <= rect.top + rect.height &&
+              rect.left <= event.clientX &&
+              event.clientX <= rect.left + rect.width
+            );
+            if (isDialogContent) return;
+            dialog.close();
+          });
+        }
+      }
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && activeDrag) {
+          e.preventDefault();
+          finishPointerDrag(true);
+          return;
+        }
+        const tag = document.activeElement?.tagName;
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !e.shiftKey && tag !== 'TEXTAREA' && tag !== 'INPUT') {
+          e.preventDefault();
+          performUndo();
+        }
+      });
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && ghConfig.token && !dirtyForRemote && !pushInFlight) {
+          pullFromGitHub({ silent: true });
+        }
+      });
+
+      window.addEventListener('beforeunload', (e) => {
+        if (dirtyForRemote && ghConfig.token) {
+          e.preventDefault();
+        }
+      });
+
+      // Demarrage
+      renderBoard();
+      if (ghConfig.token && ghConfig.repo) {
+        pullFromGitHub({ silent: true });
+      }
+    })();
+  </script>
+</body>
+</html>
